@@ -927,6 +927,93 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
 		return 0;
 	}
 #endif
+#ifdef CONFIG_BBG
+	// BBG (Baseband Guard) control command
+	if (arg2 == CMD_BBG_CONTROL) {
+		struct bbg_control_arg bbg_arg;
+		int ret = -EINVAL;
+		
+		if (!from_root && !from_manager) {
+			return 0;
+		}
+		
+		if (copy_from_user(&bbg_arg, (void __user *)arg3, sizeof(bbg_arg))) {
+			pr_err("bbg_control: copy_from_user failed\n");
+			return 0;
+		}
+		
+		switch (bbg_arg.subcmd) {
+		case BBG_CMD_GET_VERSION: {
+			extern int bbg_get_version(u32 *major, u32 *minor, u32 *patch);
+			ret = bbg_get_version(&bbg_arg.data.version.major,
+					      &bbg_arg.data.version.minor,
+					      &bbg_arg.data.version.patch);
+			break;
+		}
+		case BBG_CMD_GET_STATUS: {
+			extern int bbg_get_status(bool *enforcing, bool *debug, bool *recovery_allowed,
+						  bool *boot_protection, bool *domain_protection,
+						  int *anti_spoof_mode, bool *module_running);
+			ret = bbg_get_status(&bbg_arg.data.status.enforcing,
+					     &bbg_arg.data.status.debug,
+					     &bbg_arg.data.status.recovery_allowed,
+					     &bbg_arg.data.status.boot_protection,
+					     &bbg_arg.data.status.domain_protection,
+					     &bbg_arg.data.status.anti_spoof_mode,
+					     &bbg_arg.data.status.module_running);
+			break;
+		}
+		case BBG_CMD_SET_ENFORCING: {
+			extern int bbg_set_enforcing(bool enabled);
+			ret = bbg_set_enforcing(bbg_arg.data.bool_val);
+			break;
+		}
+		case BBG_CMD_SET_DEBUG: {
+			extern int bbg_set_debug(bool enabled);
+			ret = bbg_set_debug(bbg_arg.data.bool_val);
+			break;
+		}
+		case BBG_CMD_SET_RECOVERY_ALLOWED: {
+			extern int bbg_set_recovery_allowed(bool enabled);
+			ret = bbg_set_recovery_allowed(bbg_arg.data.bool_val);
+			break;
+		}
+		case BBG_CMD_SET_BOOT_PROTECTION: {
+			extern int bbg_set_boot_protection(bool enabled);
+			ret = bbg_set_boot_protection(bbg_arg.data.bool_val);
+			break;
+		}
+		case BBG_CMD_SET_DOMAIN_PROTECTION: {
+			extern int bbg_set_domain_protection(bool enabled);
+			ret = bbg_set_domain_protection(bbg_arg.data.bool_val);
+			break;
+		}
+		case BBG_CMD_SET_ANTI_SPOOF_MODE: {
+			extern int bbg_set_anti_spoof_mode(int mode);
+			ret = bbg_set_anti_spoof_mode(bbg_arg.data.int_val);
+			break;
+		}
+		default:
+			ret = -EINVAL;
+			break;
+		}
+		
+		if (ret == 0) {
+			if (bbg_arg.subcmd == BBG_CMD_GET_VERSION || bbg_arg.subcmd == BBG_CMD_GET_STATUS) {
+				if (copy_to_user((void __user *)arg3, &bbg_arg, sizeof(bbg_arg))) {
+					pr_err("bbg_control: copy_to_user failed\n");
+					return 0;
+				}
+			}
+			if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
+				pr_err("bbg_control: prctl reply error\n");
+			}
+		} else {
+			pr_err("bbg_control: operation failed with error %d\n", ret);
+		}
+		return 0;
+	}
+#endif
 
 #ifdef CONFIG_KSU_SUSFS
 	if (current_uid_val == 0) {

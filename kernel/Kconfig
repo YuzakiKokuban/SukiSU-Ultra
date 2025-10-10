@@ -65,6 +65,17 @@ config KPM
 	    This option is suitable for scenarios where you need to force KPM to be enabled.
 	    but it may affect system stability.
 
+config BBG
+    bool "Enable Baseband Guard (Anti-Format)" 
+      default n
+      depends on SECURITY
+      help
+        An Android baseband anti-formatting protector 
+        module by Github@showdo, preventing malicious
+        scripts or programs writing into important
+        function partitions.
+        If unsure, leave this y.
+
 choice
     prompt "KernelSU hook type"
     depends on KSU

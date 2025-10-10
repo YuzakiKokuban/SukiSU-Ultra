@@ -37,6 +37,7 @@
 #define CMD_DYNAMIC_MANAGER 103
 #define CMD_GET_MANAGERS 104
 #define CMD_ENABLE_UID_SCANNER 105
+#define CMD_BBG_CONTROL 106
 
 #define EVENT_POST_FS_DATA 1
 #define EVENT_BOOT_COMPLETED 2
@@ -119,6 +120,43 @@ static inline void init_susfs_feature_status(struct susfs_feature_status *status
     SUSFS_FEATURE_CHECK(CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT, status_magic_mount);
     SUSFS_FEATURE_CHECK(CONFIG_KSU_SUSFS_SUS_SU, status_sus_su);
 }
+
+#ifdef CONFIG_BBG
+#define BBG_CMD_GET_VERSION 0
+#define BBG_CMD_GET_STATUS 1
+#define BBG_CMD_SET_ENFORCING 2
+#define BBG_CMD_SET_DEBUG 3
+#define BBG_CMD_SET_RECOVERY_ALLOWED 4
+#define BBG_CMD_SET_BOOT_PROTECTION 5
+#define BBG_CMD_SET_DOMAIN_PROTECTION 6
+#define BBG_CMD_SET_ANTI_SPOOF_MODE 7
+
+struct bbg_version_info {
+    u32 major;
+    u32 minor;
+    u32 patch;
+};
+
+struct bbg_status_info {
+    bool enforcing;
+    bool debug;
+    bool recovery_allowed;
+    bool boot_protection;
+    bool domain_protection;
+    int anti_spoof_mode;
+    bool module_running;
+};
+
+struct bbg_control_arg {
+    u32 subcmd;
+    union {
+        struct bbg_version_info version;
+        struct bbg_status_info status;
+        bool bool_val;
+        int int_val;
+    } data;
+};
+#endif
 
 struct root_profile {
 	int32_t uid;
