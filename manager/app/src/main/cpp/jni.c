@@ -444,3 +444,84 @@ NativeBridge(setUidScannerEnabled, jboolean, jboolean enabled) {
 NativeBridgeNP(clearUidScannerEnvironment, jboolean) {
     return clear_uid_scanner_environment();
 }
+
+NativeBridgeNP(getBasebandGuardVersion, jobject) {
+    struct bbg_version_info version;
+    bool result = get_baseband_guard_version(&version);
+
+    if (!result) {
+        LogDebug("getBasebandGuardVersion: failed to get BBG version");
+        return NULL;
+    }
+
+    jobject obj = CREATE_JAVA_OBJECT("com/sukisu/ultra/Natives$BasebandGuardVersion");
+    jclass cls = GetEnvironment()->FindClass(env, "com/sukisu/ultra/Natives$BasebandGuardVersion");
+
+    SET_INT_FIELD(obj, cls, major, (jint)version.major);
+    SET_INT_FIELD(obj, cls, minor, (jint)version.minor);
+    SET_INT_FIELD(obj, cls, patch, (jint)version.patch);
+
+    LogDebug("getBasebandGuardVersion: v%d.%d.%d", version.major, version.minor, version.patch);
+    return obj;
+}
+
+NativeBridgeNP(getBasebandGuardStatus, jobject) {
+    struct bbg_status_info status;
+    bool result = get_baseband_guard_status(&status);
+
+    if (!result) {
+        LogDebug("getBasebandGuardStatus: failed to get BBG status");
+        return NULL;
+    }
+
+    jobject obj = CREATE_JAVA_OBJECT("com/sukisu/ultra/Natives$BasebandGuardStatus");
+    jclass cls = GetEnvironment()->FindClass(env, "com/sukisu/ultra/Natives$BasebandGuardStatus");
+
+    SET_BOOLEAN_FIELD(obj, cls, enforcing, status.enforcing);
+    SET_BOOLEAN_FIELD(obj, cls, debug, status.debug);
+    SET_BOOLEAN_FIELD(obj, cls, recoveryAllowed, status.recovery_allowed);
+    SET_BOOLEAN_FIELD(obj, cls, bootProtection, status.boot_protection);
+    SET_BOOLEAN_FIELD(obj, cls, domainProtection, status.domain_protection);
+    SET_INT_FIELD(obj, cls, antiSpoofMode, status.anti_spoof_mode);
+    SET_BOOLEAN_FIELD(obj, cls, moduleRunning, status.module_running);
+
+    LogDebug("getBasebandGuardStatus: enforcing=%d, debug=%d, running=%d",
+             status.enforcing, status.debug, status.module_running);
+    return obj;
+}
+
+NativeBridge(setBasebandGuardEnforcing, jboolean, jboolean enabled) {
+    bool result = set_baseband_guard_enforcing(enabled);
+    LogDebug("setBasebandGuardEnforcing: enabled=%d, result=%d", enabled, result);
+    return result;
+}
+
+NativeBridge(setBasebandGuardDebug, jboolean, jboolean enabled) {
+    bool result = set_baseband_guard_debug(enabled);
+    LogDebug("setBasebandGuardDebug: enabled=%d, result=%d", enabled, result);
+    return result;
+}
+
+NativeBridge(setBasebandGuardRecoveryAllowed, jboolean, jboolean enabled) {
+    bool result = set_baseband_guard_recovery_allowed(enabled);
+    LogDebug("setBasebandGuardRecoveryAllowed: enabled=%d, result=%d", enabled, result);
+    return result;
+}
+
+NativeBridge(setBasebandGuardBootProtection, jboolean, jboolean enabled) {
+    bool result = set_baseband_guard_boot_protection(enabled);
+    LogDebug("setBasebandGuardBootProtection: enabled=%d, result=%d", enabled, result);
+    return result;
+}
+
+NativeBridge(setBasebandGuardDomainProtection, jboolean, jboolean enabled) {
+    bool result = set_baseband_guard_domain_protection(enabled);
+    LogDebug("setBasebandGuardDomainProtection: enabled=%d, result=%d", enabled, result);
+    return result;
+}
+
+NativeBridge(setBasebandGuardAntiSpoofMode, jboolean, jint mode) {
+    bool result = set_baseband_guard_anti_spoof_mode(mode);
+    LogDebug("setBasebandGuardAntiSpoofMode: mode=%d, result=%d", mode, result);
+    return result;
+}

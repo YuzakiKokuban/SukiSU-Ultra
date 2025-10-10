@@ -9,6 +9,14 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +30,7 @@ import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -73,6 +82,9 @@ fun HomeScreen(navigator: DestinationsNavigator) {
     val context = LocalContext.current
     val viewModel = viewModel<HomeViewModel>()
     val coroutineScope = rememberCoroutineScope()
+
+    val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    val isHideBasebandGuardVersion = prefs.getBoolean("is_hide_baseband_guard_version", false)
 
     val pullRefreshState = rememberPullRefreshState(
         refreshing = viewModel.isRefreshing,
@@ -175,6 +187,7 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                         isHideZygiskImplement = viewModel.isHideZygiskImplement,
                         showKpmInfo = viewModel.showKpmInfo,
                         lkmMode = viewModel.systemStatus.lkmMode,
+                        isHideBasebandGuardVersion = isHideBasebandGuardVersion
                     )
 
                     // 链接卡片
@@ -643,7 +656,8 @@ private fun InfoCard(
     isHideSusfsStatus: Boolean,
     isHideZygiskImplement: Boolean,
     showKpmInfo: Boolean,
-    lkmMode: Boolean?
+    lkmMode: Boolean?,
+    isHideBasebandGuardVersion: Boolean
 ) {
     ElevatedCard(
         colors = getCardColors(MaterialTheme.colorScheme.surfaceContainer),
@@ -765,6 +779,24 @@ private fun InfoCard(
                 systemInfo.seLinuxStatus,
                 icon = Icons.Default.Security,
             )
+
+            // LSM Status
+            if (!isSimpleMode && systemInfo.lsmStatus != "Unknown" && systemInfo.lsmStatus.isNotEmpty()) {
+                InfoCardItem(
+                    stringResource(R.string.home_lsm_status),
+                    systemInfo.lsmStatus,
+                    icon = Icons.Default.Shield,
+                )
+            }
+
+            // Baseband-guard Version
+            if (!isSimpleMode && systemInfo.basebandGuardVersion.isNotEmpty() && !isHideBasebandGuardVersion) {
+                InfoCardItem(
+                    stringResource(R.string.home_baseband_guard_version),
+                    systemInfo.basebandGuardVersion,
+                    icon = Icons.Default.Lock,
+                )
+            }
 
             if (!isHideZygiskImplement && !isSimpleMode && systemInfo.zygiskImplement != "None") {
                 InfoCardItem(

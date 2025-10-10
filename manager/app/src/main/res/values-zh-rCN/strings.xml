@@ -15,6 +15,8 @@
     <string name="selinux_status_enforcing">强制执行</string>
     <string name="selinux_status_permissive">宽容模式</string>
     <string name="selinux_status_unknown">未知</string>
+    <string name="home_lsm_status">LSM 模块</string>
+    <string name="home_baseband_guard_version">基带保护状态</string>
     <string name="superuser">超级用户</string>
     <string name="module_failed_to_enable">无法启用模块：%s</string>
     <string name="module_failed_to_disable">无法禁用模块：%s</string>
@@ -657,4 +659,35 @@
     <string name="clean_runtime_environment_confirm">您确定要清理运行环境吗？这将停止扫描服务并删除相关文件</string>
     <string name="clean_runtime_environment_success">运行环境清理成功</string>
     <string name="clean_runtime_environment_failed">运行环境清理失败</string>
+    <!-- BBG (Baseband Guard) 相关字符串 -->
+    <string name="bbg_title">基带防护</string>
+    <string name="bbg_version">BBG 版本</string>
+    <string name="bbg_not_available">BBG 不可用</string>
+    <string name="bbg_enforcing">强制模式</string>
+    <string name="bbg_enforcing_summary">启用基带安全策略的严格执行</string>
+    <string name="bbg_debug">调试模式</string>
+    <string name="bbg_debug_summary">启用基带操作的调试日志</string>
+    <string name="bbg_recovery_allowed">恢复模式</string>
+    <string name="bbg_recovery_allowed_summary">允许访问恢复模式</string>
+    <string name="bbg_boot_protection">启动保护</string>
+    <string name="bbg_boot_protection_summary">保护启动分区免受修改</string>
+    <string name="bbg_domain_protection">域保护</string>
+    <string name="bbg_domain_protection_summary">启用基于域的安全保护</string>
+    <string name="bbg_anti_spoof_mode">反欺骗模式</string>
+    <string name="bbg_anti_spoof_mode_summary">配置反欺骗保护级别</string>
+    <string name="bbg_module_running">模块状态</string>
+    <string name="bbg_module_running_summary">BBG 内核模块正在运行</string>
+    <string name="bbg_module_not_running_summary">BBG 内核模块未运行</string>
+    <string name="bbg_anti_spoof_level_1">级别 1</string>
+    <string name="bbg_anti_spoof_level_2">级别 2</string>
+    <string name="bbg_anti_spoof_level_3">级别 3</string>
+    <string name="bbg_anti_spoof_level_1_desc">阻止 setenforce（防止宽容模式）</string>
+    <string name="bbg_anti_spoof_level_2_desc">宽容模式后不再信任</string>
+    <string name="bbg_anti_spoof_level_3_desc">不处理域欺骗</string>
+    <string name="bbg_setting_success">BBG 设置应用成功</string>
+    <string name="bbg_setting_failed">BBG 设置应用失败</string>
+    <string name="hide_baseband_guard_version">隐藏 Baseband Guard 版本信息</string>
+    <string name="hide_baseband_guard_version_summary">在主屏幕上隐藏 Baseband Guard 版本信息</string>
+    <string name="baseband_guard_running">运行中</string>
+    <string name="baseband_guard_not_installed">未安装</string>
 </resources>

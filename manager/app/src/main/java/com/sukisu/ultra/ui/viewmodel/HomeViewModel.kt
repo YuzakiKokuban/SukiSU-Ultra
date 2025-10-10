@@ -11,6 +11,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sukisu.ultra.KernelVersion
 import com.sukisu.ultra.Natives
+import com.sukisu.ultra.R
 import com.sukisu.ultra.getKernelVersion
 import com.sukisu.ultra.ksuApp
 import com.sukisu.ultra.ui.util.*
@@ -44,6 +45,8 @@ class HomeViewModel : ViewModel() {
         val deviceModel: String = "",
         val managerVersion: Pair<String, Long> = Pair("", 0L),
         val seLinuxStatus: String = "",
+        val lsmStatus: String = "",
+        val basebandGuardVersion: String = "",
         val kpmVersion: String = "",
         val suSFSStatus: String = "",
         val suSFSVersion: String = "",
@@ -222,7 +225,9 @@ class HomeViewModel : ViewModel() {
                     androidVersion = basicInfo.second,
                     deviceModel = basicInfo.third,
                     managerVersion = basicInfo.fourth,
-                    seLinuxStatus = basicInfo.fifth
+                    seLinuxStatus = basicInfo.fifth,
+                    lsmStatus = basicInfo.sixth,
+                    basebandGuardVersion = basicInfo.seventh
                 )
 
                 delay(100)
@@ -376,7 +381,7 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    private suspend fun loadBasicSystemInfo(context: Context): Tuple5<String, String, String, Pair<String, Long>, String> {
+    private suspend fun loadBasicSystemInfo(context: Context): Tuple7<String, String, String, Pair<String, Long>, String, String, String> {
         return withContext(Dispatchers.IO) {
             val uname = try {
                 Os.uname()
@@ -402,16 +407,44 @@ class HomeViewModel : ViewModel() {
                 "Unknown"
             }
 
-            Tuple5(
+            val lsmStatus = try {
+                getLSMStatus()
+            } catch (_: Exception) {
+                "Unknown"
+            }
+
+            val basebandGuardVersion = try {
+                getBasebandGuardVersionString(context)
+            } catch (_: Exception) {
+                "Not installed"
+            }
+
+            Tuple7(
                 uname?.release ?: "Unknown",
                 Build.VERSION.RELEASE ?: "Unknown",
                 deviceModel,
                 managerVersion,
-                seLinuxStatus
+                seLinuxStatus,
+                lsmStatus,
+                basebandGuardVersion
             )
         }
     }
 
+    private suspend fun getBasebandGuardVersionString(context: Context): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                val version = Natives.getBasebandGuardVersion()
+                if (version != null) {
+                    context.getString(R.string.baseband_guard_running)
+                } else {
+                    context.getString(R.string.baseband_guard_not_installed)
+                }
+            } catch (_: Exception) {
+                context.getString(R.string.baseband_guard_not_installed)
+            }
+        }
+    }
     private suspend fun loadModuleInfo(): Tuple5<String, Int, Int, Int, String> {
         return withContext(Dispatchers.IO) {
             val kpmVersion = try {
@@ -593,6 +626,34 @@ class HomeViewModel : ViewModel() {
         val fourth: T4,
         val fifth: T5
     )
+
+    data class Tuple7<T1, T2, T3, T4, T5, T6, T7>(
+        val first: T1,
+        val second: T2,
+        val third: T3,
+        val fourth: T4,
+        val fifth: T5,
+        val sixth: T6,
+        val seventh: T7
+    )
+
+    private fun getLSMStatus(): String {
+        return try {
+            val lsmFile = java.io.File("/sys/kernel/security/lsm")
+            android.util.Log.d("LSM_DEBUG", "LSM file exists: ${lsmFile.exists()}, canRead: ${lsmFile.canRead()}")
+            if (lsmFile.exists() && lsmFile.canRead()) {
+                val content = lsmFile.readText().trim()
+                android.util.Log.d("LSM_DEBUG", "LSM content: '$content'")
+                content
+            } else {
+                android.util.Log.d("LSM_DEBUG", "LSM file not accessible, returning Unknown")
+                "Unknown"
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("LSM_DEBUG", "Exception reading LSM: ${e.message}")
+            "Unknown"
+        }
+    }
 
     override fun onCleared() {
         super.onCleared()

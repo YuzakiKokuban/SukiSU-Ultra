@@ -158,6 +158,60 @@ object Natives {
      */
     external fun clearUidScannerEnvironment(): Boolean
 
+    /**
+     * Get Baseband Guard version information
+     * @return BasebandGuardVersion object containing version info, or null if failed
+     */
+    external fun getBasebandGuardVersion(): BasebandGuardVersion?
+
+    /**
+     * Get Baseband Guard status and configuration
+     * @return BasebandGuardStatus object containing all status info, or null if failed
+     */
+    external fun getBasebandGuardStatus(): BasebandGuardStatus?
+
+    /**
+     * Set Baseband Guard enforcing mode
+     * @param enabled true to enable enforcing mode, false to disable
+     * @return true if operation was successful, false otherwise
+     */
+    external fun setBasebandGuardEnforcing(enabled: Boolean): Boolean
+
+    /**
+     * Set Baseband Guard debug mode
+     * @param enabled true to enable debug mode, false to disable
+     * @return true if operation was successful, false otherwise
+     */
+    external fun setBasebandGuardDebug(enabled: Boolean): Boolean
+
+    /**
+     * Set Baseband Guard recovery mode permission
+     * @param enabled true to allow recovery mode, false to deny
+     * @return true if operation was successful, false otherwise
+     */
+    external fun setBasebandGuardRecoveryAllowed(enabled: Boolean): Boolean
+
+    /**
+     * Set Baseband Guard boot partition protection
+     * @param enabled true to enable boot protection, false to disable
+     * @return true if operation was successful, false otherwise
+     */
+    external fun setBasebandGuardBootProtection(enabled: Boolean): Boolean
+
+    /**
+     * Set Baseband Guard domain protection
+     * @param enabled true to enable domain protection, false to disable
+     * @return true if operation was successful, false otherwise
+     */
+    external fun setBasebandGuardDomainProtection(enabled: Boolean): Boolean
+
+    /**
+     * Set Baseband Guard anti-spoof mode
+     * @param mode anti-spoof mode (1-3)
+     * @return true if operation was successful, false otherwise
+     */
+    external fun setBasebandGuardAntiSpoofMode(mode: Int): Boolean
+
     private const val NON_ROOT_DEFAULT_PROFILE_KEY = "$"
     private const val NOBODY_UID = 9999
 
@@ -270,4 +324,26 @@ object Natives {
 
         constructor() : this("")
     }
+
+    @Immutable
+    @Parcelize
+    @Keep
+    data class BasebandGuardVersion(
+        val major: Int = 0,
+        val minor: Int = 0,
+        val patch: Int = 0
+    ) : Parcelable
+
+    @Immutable
+    @Parcelize
+    @Keep
+    data class BasebandGuardStatus(
+        val enforcing: Boolean = false,
+        val debug: Boolean = false,
+        val recoveryAllowed: Boolean = false,
+        val bootProtection: Boolean = false,
+        val domainProtection: Boolean = false,
+        val antiSpoofMode: Int = 0,
+        val moduleRunning: Boolean = false
+    ) : Parcelable
 }

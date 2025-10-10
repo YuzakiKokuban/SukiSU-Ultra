@@ -115,6 +115,12 @@ fun MoreSettingsScreen(
     var dynamicSignHash by remember { mutableStateOf("") }
     var showDynamicSignDialog by remember { mutableStateOf(false) }
 
+    // BBG (Baseband Guard) 状态
+    var bbgVersion by remember { mutableStateOf<Natives.BasebandGuardVersion?>(null) }
+    var bbgStatus by remember { mutableStateOf<Natives.BasebandGuardStatus?>(null) }
+    var bbgExpanded by remember { mutableStateOf(false) }
+    var showAntiSpoofDialog by remember { mutableStateOf(false) }
+
     // 主题模式选项
     val themeOptions = listOf(
         stringResource(R.string.theme_follow_system),
@@ -225,6 +231,16 @@ fun MoreSettingsScreen(
     // SELinux状态
     var selinuxEnabled by remember {
         mutableStateOf(Shell.cmd("getenforce").exec().out.firstOrNull() == "Enforcing")
+    }
+
+    // 隐藏 Baseband Guard Version 开关状态
+    var isHideBasebandGuardVersion by remember {
+        mutableStateOf(prefs.getBoolean("is_hide_baseband_guard_version", false))
+    }
+
+    val onHideBasebandGuardVersionChange = { newValue: Boolean ->
+        prefs.edit { putBoolean("is_hide_baseband_guard_version", newValue) }
+        isHideBasebandGuardVersion = newValue
     }
 
     // 卡片配置状态
@@ -643,6 +659,10 @@ fun MoreSettingsScreen(
                 dynamicSignHash = config.hash
             }
         }
+
+        // 初始化 BBG 状态
+        bbgVersion = Natives.getBasebandGuardVersion()
+        bbgStatus = Natives.getBasebandGuardStatus()
     }
 
     fun parseDynamicSignSize(input: String): Int? {
@@ -791,6 +811,40 @@ fun MoreSettingsScreen(
                     Text(stringResource(R.string.cancel))
                 }
             }
+        )
+    }
+
+    // BBG 反欺骗模式选择对话框
+    if (showAntiSpoofDialog) {
+        val antiSpoofOptions = listOf(
+            stringResource(R.string.bbg_anti_spoof_level_1) + " - " + stringResource(R.string.bbg_anti_spoof_level_1_desc),
+            stringResource(R.string.bbg_anti_spoof_level_2) + " - " + stringResource(R.string.bbg_anti_spoof_level_2_desc),
+            stringResource(R.string.bbg_anti_spoof_level_3) + " - " + stringResource(R.string.bbg_anti_spoof_level_3_desc)
+        )
+
+        SingleChoiceDialog(
+            title = stringResource(R.string.bbg_anti_spoof_mode),
+            options = antiSpoofOptions,
+            selectedIndex = bbgStatus?.antiSpoofMode?.let { it - 1 } ?: 0,
+            onOptionSelected = { index ->
+                val success = Natives.setBasebandGuardAntiSpoofMode(index + 1)
+                if (success) {
+                    bbgStatus = Natives.getBasebandGuardStatus() ?: bbgStatus
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.bbg_setting_success),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.bbg_setting_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                showAntiSpoofDialog = false
+            },
+            onDismiss = { showAntiSpoofDialog = false }
         )
     }
 
@@ -1272,6 +1326,15 @@ fun MoreSettingsScreen(
                     )
                 }
 
+                // 隐藏 Baseband Guard Version 开关
+                SwitchSettingItem(
+                    icon = Icons.Filled.Lock,
+                    title = stringResource(R.string.hide_baseband_guard_version),
+                    summary = stringResource(R.string.hide_baseband_guard_version_summary),
+                    checked = isHideBasebandGuardVersion,
+                    onChange = onHideBasebandGuardVersionChange
+                )
+
                 // 隐藏链接信息
                 SwitchSettingItem(
                     icon = Icons.Filled.VisibilityOff,
@@ -1392,6 +1455,191 @@ fun MoreSettingsScreen(
                             },
                             onClick = { showDynamicSignDialog = true }
                         )
+                    }
+
+                    // BBG (Baseband Guard) 设置
+                    bbgVersion?.let { version ->
+                        SettingsDivider()
+
+                        // BBG 标题和版本信息
+                        SettingItem(
+                            icon = Icons.Filled.Shield,
+                            title = stringResource(R.string.bbg_title),
+                            subtitle = stringResource(R.string.bbg_version) + ": v${version.major}.${version.minor}.${version.patch}",
+                            onClick = { bbgExpanded = !bbgExpanded },
+                            trailingContent = {
+                                Icon(
+                                    if (bbgExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        )
+
+                        // BBG 详细设置（可折叠）
+                        AnimatedVisibility(
+                            visible = bbgExpanded,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            Column {
+                                bbgStatus?.let { status ->
+                                    // 模块运行状态（只读）
+                                    SettingItem(
+                                        icon = if (status.moduleRunning) Icons.Filled.CheckCircle else Icons.Filled.Error,
+                                        title = stringResource(R.string.bbg_module_running),
+                                        subtitle = if (status.moduleRunning)
+                                            stringResource(R.string.bbg_module_running_summary)
+                                        else
+                                            stringResource(R.string.bbg_module_not_running_summary),
+                                        onClick = {},
+                                        iconTint = if (status.moduleRunning)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.error,
+                                        trailingContent = null
+                                    )
+
+                                    // 强制模式开关
+                                    SwitchSettingItem(
+                                        icon = Icons.Filled.Security,
+                                        title = stringResource(R.string.bbg_enforcing),
+                                        summary = stringResource(R.string.bbg_enforcing_summary),
+                                        checked = status.enforcing,
+                                        onChange = { enabled ->
+                                            val success = Natives.setBasebandGuardEnforcing(enabled)
+                                            if (success) {
+                                                bbgStatus = status.copy(enforcing = enabled)
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_success),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_failed),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                    )
+
+                                    // 调试模式开关
+                                    SwitchSettingItem(
+                                        icon = Icons.Filled.BugReport,
+                                        title = stringResource(R.string.bbg_debug),
+                                        summary = stringResource(R.string.bbg_debug_summary),
+                                        checked = status.debug,
+                                        onChange = { enabled ->
+                                            val success = Natives.setBasebandGuardDebug(enabled)
+                                            if (success) {
+                                                bbgStatus = status.copy(debug = enabled)
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_success),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_failed),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                    )
+
+                                    // 恢复模式开关
+                                    SwitchSettingItem(
+                                        icon = Icons.Filled.RestartAlt,
+                                        title = stringResource(R.string.bbg_recovery_allowed),
+                                        summary = stringResource(R.string.bbg_recovery_allowed_summary),
+                                        checked = status.recoveryAllowed,
+                                        onChange = { enabled ->
+                                            val success = Natives.setBasebandGuardRecoveryAllowed(enabled)
+                                            if (success) {
+                                                bbgStatus = status.copy(recoveryAllowed = enabled)
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_success),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_failed),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                    )
+
+                                    // 启动保护开关
+                                    SwitchSettingItem(
+                                        icon = Icons.Filled.Shield,
+                                        title = stringResource(R.string.bbg_boot_protection),
+                                        summary = stringResource(R.string.bbg_boot_protection_summary),
+                                        checked = status.bootProtection,
+                                        onChange = { enabled ->
+                                            val success = Natives.setBasebandGuardBootProtection(enabled)
+                                            if (success) {
+                                                bbgStatus = status.copy(bootProtection = enabled)
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_success),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_failed),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                    )
+
+                                    // 域保护开关
+                                    SwitchSettingItem(
+                                        icon = Icons.Filled.Domain,
+                                        title = stringResource(R.string.bbg_domain_protection),
+                                        summary = stringResource(R.string.bbg_domain_protection_summary),
+                                        checked = status.domainProtection,
+                                        onChange = { enabled ->
+                                            val success = Natives.setBasebandGuardDomainProtection(enabled)
+                                            if (success) {
+                                                bbgStatus = status.copy(domainProtection = enabled)
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_success),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.bbg_setting_failed),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                    )
+
+                                    // 反欺骗模式设置
+                                    SettingItem(
+                                        icon = Icons.Filled.Shield,
+                                        title = stringResource(R.string.bbg_anti_spoof_mode),
+                                        subtitle = when (status.antiSpoofMode) {
+                                            1 -> stringResource(R.string.bbg_anti_spoof_level_1)
+                                            2 -> stringResource(R.string.bbg_anti_spoof_level_2)
+                                            3 -> stringResource(R.string.bbg_anti_spoof_level_3)
+                                            else -> stringResource(R.string.bbg_anti_spoof_level_3)
+                                        },
+                                        onClick = { showAntiSpoofDialog = true }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

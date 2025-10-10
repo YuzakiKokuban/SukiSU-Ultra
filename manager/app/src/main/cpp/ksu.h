@@ -57,6 +57,33 @@ struct susfs_feature_status {
     bool status_sus_su;
 };
 
+// BBG Control structures
+struct bbg_version_info {
+    uint32_t major;
+    uint32_t minor;
+    uint32_t patch;
+};
+
+struct bbg_status_info {
+    bool enforcing;
+    bool debug;
+    bool recovery_allowed;
+    bool boot_protection;
+    bool domain_protection;
+    int anti_spoof_mode;
+    bool module_running;
+};
+
+struct bbg_control_arg {
+    uint32_t subcmd;
+    union {
+        struct bbg_version_info version;
+        struct bbg_status_info status;
+        bool bool_val;
+        int int_val;
+    } data;
+};
+
 struct root_profile {
     int32_t uid;
     int32_t gid;
@@ -142,5 +169,14 @@ bool is_uid_scanner_enabled();
 bool set_uid_scanner_enabled(bool enabled);
 
 bool clear_uid_scanner_environment();
+
+bool get_baseband_guard_version(struct bbg_version_info* version);
+bool get_baseband_guard_status(struct bbg_status_info* status);
+bool set_baseband_guard_enforcing(bool enabled);
+bool set_baseband_guard_debug(bool enabled);
+bool set_baseband_guard_recovery_allowed(bool enabled);
+bool set_baseband_guard_boot_protection(bool enabled);
+bool set_baseband_guard_domain_protection(bool enabled);
+bool set_baseband_guard_anti_spoof_mode(int mode);
 
 #endif //KERNELSU_KSU_H

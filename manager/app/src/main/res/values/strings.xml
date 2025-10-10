@@ -16,6 +16,8 @@
     <string name="selinux_status_enforcing">Enforcing</string>
     <string name="selinux_status_permissive">Permissive</string>
     <string name="selinux_status_unknown">Unknown</string>
+    <string name="home_lsm_status">LSM modules</string>
+    <string name="home_baseband_guard_version">Baseband-guard status</string>
     <string name="superuser">Superuser</string>
     <string name="module_failed_to_enable">Failed to enable module: %s</string>
     <string name="module_failed_to_disable">Failed to disable module: %s</string>
@@ -665,4 +667,35 @@ Important Note:\n
     <string name="clean_runtime_environment_confirm">Are you sure you want to clean the runtime environment? This will stop the scanner service and remove related files.</string>
     <string name="clean_runtime_environment_success">Runtime environment cleaned successfully</string>
     <string name="clean_runtime_environment_failed">Failed to clean runtime environment</string>
+    <!-- BBG (Baseband Guard) 相关字符串 -->
+    <string name="bbg_title">Baseband Guard</string>
+    <string name="bbg_version">BBG Version</string>
+    <string name="bbg_not_available">BBG Not Available</string>
+    <string name="bbg_enforcing">Enforcing Mode</string>
+    <string name="bbg_enforcing_summary">Enable strict enforcement of baseband security policies</string>
+    <string name="bbg_debug">Debug Mode</string>
+    <string name="bbg_debug_summary">Enable debug logging for baseband operations</string>
+    <string name="bbg_recovery_allowed">Recovery Mode</string>
+    <string name="bbg_recovery_allowed_summary">Allow recovery mode access</string>
+    <string name="bbg_boot_protection">Boot Protection</string>
+    <string name="bbg_boot_protection_summary">Protect boot partition from modifications</string>
+    <string name="bbg_domain_protection">Domain Protection</string>
+    <string name="bbg_domain_protection_summary">Enable domain-based security protection</string>
+    <string name="bbg_anti_spoof_mode">Anti-Spoof Mode</string>
+    <string name="bbg_anti_spoof_mode_summary">Configure anti-spoofing protection level</string>
+    <string name="bbg_module_running">Module Status</string>
+    <string name="bbg_module_running_summary">BBG kernel module is running</string>
+    <string name="bbg_module_not_running_summary">BBG kernel module is not running</string>
+    <string name="bbg_anti_spoof_level_1">Level 1</string>
+    <string name="bbg_anti_spoof_level_2">Level 2</string>
+    <string name="bbg_anti_spoof_level_3">Level 3</string>
+    <string name="bbg_anti_spoof_level_1_desc">Block setenforce (prevent permissive)</string>
+    <string name="bbg_anti_spoof_level_2_desc">No trust after permissive once</string>
+    <string name="bbg_anti_spoof_level_3_desc">No domain spoof processing</string>
+    <string name="bbg_setting_success">BBG setting applied successfully</string>
+    <string name="bbg_setting_failed">Failed to apply BBG setting</string>
+    <string name="hide_baseband_guard_version">Hide Baseband Guard Version</string>
+    <string name="hide_baseband_guard_version_summary">Hide the Baseband Guard Version information in the main screen</string>
+    <string name="baseband_guard_running">Running</string>
+    <string name="baseband_guard_not_installed">Not installed</string>
 </resources>

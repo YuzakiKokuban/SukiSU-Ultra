@@ -49,6 +49,17 @@ extern const char* zako_file_verrcidx2str(uint8_t index);
 #define CMD_DYNAMIC_MANAGER 103
 #define CMD_GET_MANAGERS 104
 #define CMD_ENABLE_UID_SCANNER 105
+#define CMD_BBG_CONTROL 106
+
+// BBG Control Sub-commands
+#define BBG_CMD_GET_VERSION 0
+#define BBG_CMD_GET_STATUS 1
+#define BBG_CMD_SET_ENFORCING 2
+#define BBG_CMD_SET_DEBUG 3
+#define BBG_CMD_SET_RECOVERY_ALLOWED 4
+#define BBG_CMD_SET_BOOT_PROTECTION 5
+#define BBG_CMD_SET_DOMAIN_PROTECTION 6
+#define BBG_CMD_SET_ANTI_SPOOF_MODE 7
 
 #define DYNAMIC_MANAGER_OP_SET 0
 #define DYNAMIC_MANAGER_OP_GET 1
@@ -264,4 +275,82 @@ bool set_uid_scanner_enabled(bool enabled) {
 
 bool clear_uid_scanner_environment() {
     return ksuctl(CMD_ENABLE_UID_SCANNER, (void*)2, NULL);
+}
+
+bool get_baseband_guard_version(struct bbg_version_info* version) {
+    if (version == NULL) {
+        return false;
+    }
+
+    struct bbg_control_arg arg;
+    arg.subcmd = BBG_CMD_GET_VERSION;
+
+    bool result = ksuctl(CMD_BBG_CONTROL, &arg, NULL);
+    if (result) {
+        *version = arg.data.version;
+    }
+    return result;
+}
+
+bool get_baseband_guard_status(struct bbg_status_info* status) {
+    if (status == NULL) {
+        return false;
+    }
+
+    struct bbg_control_arg arg;
+    arg.subcmd = BBG_CMD_GET_STATUS;
+
+    bool result = ksuctl(CMD_BBG_CONTROL, &arg, NULL);
+    if (result) {
+        *status = arg.data.status;
+    }
+    return result;
+}
+
+bool set_baseband_guard_enforcing(bool enabled) {
+    struct bbg_control_arg arg;
+    arg.subcmd = BBG_CMD_SET_ENFORCING;
+    arg.data.bool_val = enabled;
+
+    return ksuctl(CMD_BBG_CONTROL, &arg, NULL);
+}
+
+bool set_baseband_guard_debug(bool enabled) {
+    struct bbg_control_arg arg;
+    arg.subcmd = BBG_CMD_SET_DEBUG;
+    arg.data.bool_val = enabled;
+
+    return ksuctl(CMD_BBG_CONTROL, &arg, NULL);
+}
+
+bool set_baseband_guard_recovery_allowed(bool enabled) {
+    struct bbg_control_arg arg;
+    arg.subcmd = BBG_CMD_SET_RECOVERY_ALLOWED;
+    arg.data.bool_val = enabled;
+
+    return ksuctl(CMD_BBG_CONTROL, &arg, NULL);
+}
+
+bool set_baseband_guard_boot_protection(bool enabled) {
+    struct bbg_control_arg arg;
+    arg.subcmd = BBG_CMD_SET_BOOT_PROTECTION;
+    arg.data.bool_val = enabled;
+
+    return ksuctl(CMD_BBG_CONTROL, &arg, NULL);
+}
+
+bool set_baseband_guard_domain_protection(bool enabled) {
+    struct bbg_control_arg arg;
+    arg.subcmd = BBG_CMD_SET_DOMAIN_PROTECTION;
+    arg.data.bool_val = enabled;
+
+    return ksuctl(CMD_BBG_CONTROL, &arg, NULL);
+}
+
+bool set_baseband_guard_anti_spoof_mode(int mode) {
+    struct bbg_control_arg arg;
+    arg.subcmd = BBG_CMD_SET_ANTI_SPOOF_MODE;
+    arg.data.int_val = mode;
+
+    return ksuctl(CMD_BBG_CONTROL, &arg, NULL);
 }
