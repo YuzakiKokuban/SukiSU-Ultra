@@ -552,15 +552,19 @@ static long anon_ksu_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 		}
 	}
 
+#if __SULOG_GATE
 	// Log the start of the ioctl command
 	ksu_sulog_report_syscall(current_uid().val, NULL, cmd_name, "START");
+#endif
 
 	// Check permission first
 	if (ksu_ioctl_handlers[i].perm_check &&
 		!ksu_ioctl_handlers[i].perm_check()) {
 			pr_warn("ksu ioctl: permission denied for cmd=0x%x uid=%d\n",
 				cmd, current_uid().val);
+#if __SULOG_GATE
 			ksu_sulog_report_syscall(current_uid().val, NULL, cmd_name, "DENIED");
+#endif
 		return -EPERM;
 	}
 
@@ -569,9 +573,13 @@ static long anon_ksu_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 
 	// Log the result of the ioctl command
 	if (ret == 0) {
+#if __SULOG_GATE
 		ksu_sulog_report_syscall(current_uid().val, NULL, cmd_name, "SUCCESS");
+#endif
 	} else {
+#if __SULOG_GATE
 		ksu_sulog_report_syscall(current_uid().val, NULL, cmd_name, "FAILED");
+#endif
 	}
 
 	if (ksu_ioctl_handlers[i].handler == NULL) {

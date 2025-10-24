@@ -129,7 +129,6 @@ static void disable_seccomp()
 void escape_to_root(void)
 {
 	struct cred *cred;
-	uid_t original_uid = current_euid().val;
 
 	cred = prepare_creds();
 	if (!cred) {
@@ -139,7 +138,9 @@ void escape_to_root(void)
 
 	if (cred->euid.val == 0) {
 		pr_warn("Already root, don't escape!\n");
-		ksu_sulog_report_su_grant(original_uid, NULL, "escape_to_root_failed");
+#if __SULOG_GATE
+		ksu_sulog_report_su_grant(current_euid().val, NULL, "escape_to_root_failed");
+#endif
 		abort_creds(cred);
 		return;
 	}
@@ -183,8 +184,9 @@ void escape_to_root(void)
 	spin_unlock_irq(&current->sighand->siglock);
 
 	setup_selinux(profile->selinux_domain);
-
-	ksu_sulog_report_su_grant(original_uid, NULL, "escape_to_root");
+#if __SULOG_GATE
+	ksu_sulog_report_su_grant(current_euid().val, NULL, "escape_to_root");
+#endif
 }
 
 #ifdef CONFIG_KSU_MANUAL_SU
@@ -227,7 +229,9 @@ void escape_to_root_for_cmd_su(uid_t target_uid, pid_t target_pid)
 	if (!target_task) {
 		rcu_read_unlock(); 
 		pr_err("cmd_su: target task not found for PID: %d\n", target_pid);
+#if __SULOG_GATE
 		ksu_sulog_report_su_grant(target_uid, "cmd_su", "target_not_found");
+#endif
 		return;
 	}
 	get_task_struct(target_task);
@@ -242,7 +246,9 @@ void escape_to_root_for_cmd_su(uid_t target_uid, pid_t target_pid)
 	newcreds = prepare_kernel_cred(target_task);
 	if (newcreds == NULL) {
 		pr_err("cmd_su: failed to allocate new cred for PID: %d\n", target_pid);
+#if __SULOG_GATE
 		ksu_sulog_report_su_grant(target_uid, "cmd_su", "cred_alloc_failed");
+#endif
 		put_task_struct(target_task);
 		return;
 	}
@@ -292,8 +298,9 @@ void escape_to_root_for_cmd_su(uid_t target_uid, pid_t target_pid)
 	}
 
 	put_task_struct(target_task);
-
+#if __SULOG_GATE
 	ksu_sulog_report_su_grant(target_uid, "cmd_su", "manual_escalation");
+#endif
 	pr_info("cmd_su: privilege escalation completed for UID: %d, PID: %d\n", target_uid, target_pid);
 }
 #endif
@@ -447,7 +454,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
 			current->pid);
 		return 0;
 	}
+	
+#if __SULOG_GATE
 	ksu_sulog_report_syscall(new_uid.val, NULL, "setuid", NULL);
+#endif
+
 #ifdef CONFIG_KSU_DEBUG
 	// umount the target mnt
 	pr_info("handle umount for uid: %d, pid: %d\n", new_uid.val,
