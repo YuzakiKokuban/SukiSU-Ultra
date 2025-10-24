@@ -50,8 +50,6 @@ int __init kernelsu_init(void)
 	pr_info("Daemon token: %s\n", ksu_get_daemon_token());
 #endif
 
-	ksu_throne_tracker_init = alloc_ordered_workqueue("kernelsu_work_queue", 0);
-
 	ksu_allowlist_init();
 
 #ifdef CONFIG_KSU_KPROBES_HOOK

@@ -12,7 +12,6 @@
 
 #include "allowlist.h"
 #include "klog.h" // IWYU pragma: keep
-#include "ksu.h"
 #include "ksud.h"
 #include "manager.h"
 #include "sulog.h"
@@ -407,20 +406,21 @@ int do_enable_su(void __user *arg)
 
 	ksu_su_compat_enabled = cmd.enable;
 
-    return 0;
+	return 0;
 }
 
 // 100. GET_FULL_VERSION - Get full version string
 int do_get_full_version(void __user *arg)
 {
-	char ksu_version_full[KSU_FULL_VERSION_STRING] = {0};
+	struct ksu_get_full_version_cmd cmd = {0};
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
-	strscpy(ksu_version_full, KSU_VERSION_FULL, KSU_FULL_VERSION_STRING);
+	strscpy(cmd.version_full, KSU_VERSION_FULL, sizeof(cmd.version_full));
 #else
-	strlcpy(ksu_version_full, KSU_VERSION_FULL, KSU_FULL_VERSION_STRING);
+	strlcpy(cmd.version_full, KSU_VERSION_FULL, sizeof(cmd.version_full));
 #endif
 
-	if (copy_to_user(arg, ksu_version_full, KSU_FULL_VERSION_STRING)) {
+	if (copy_to_user(arg, &cmd, sizeof(cmd))) {
 		pr_err("get_full_version: copy_to_user failed\n");
 		return -EFAULT;
 	}
@@ -431,15 +431,19 @@ int do_get_full_version(void __user *arg)
 // 101. HOOK_TYPE - Get hook type
 int do_hook_type(void __user *arg)
 {
-	const char *hook_type = "Kprobes";
+	struct ksu_hook_type_cmd cmd;
+
 #if defined(CONFIG_KSU_TRACEPOINT_HOOK)
-	hook_type = "Tracepoint";
+	strncpy(cmd.hook_type, "Tracepoint", sizeof(cmd.hook_type) - 1);
 #elif defined(CONFIG_KSU_MANUAL_HOOK)
-	hook_type = "Manual";
+	strncpy(cmd.hook_type, "Manual", sizeof(cmd.hook_type) - 1);
+#else
+	strncpy(cmd.hook_type, "Kprobes", sizeof(cmd.hook_type) - 1);
 #endif
 
-	size_t len = strlen(hook_type) + 1;
-	if (copy_to_user(arg, hook_type, len)) {
+	cmd.hook_type[sizeof(cmd.hook_type) - 1] = '\0';
+
+	if (copy_to_user(arg, &cmd, sizeof(cmd))) {
 		pr_err("hook_type: copy_to_user failed\n");
 		return -EFAULT;
 	}
@@ -450,9 +454,11 @@ int do_hook_type(void __user *arg)
 // 102. ENABLE_KPM - Check if KPM is enabled
 int do_enable_kpm(void __user *arg)
 {
-	bool KPM_Enabled = IS_ENABLED(CONFIG_KPM);
+	struct ksu_enable_kpm_cmd cmd = {0};
+	
+	cmd.enabled = IS_ENABLED(CONFIG_KPM);
 
-	if (copy_to_user(arg, &KPM_Enabled, sizeof(KPM_Enabled))) {
+	if (copy_to_user(arg, &cmd, sizeof(cmd))) {
 		pr_err("enable_kpm: copy_to_user failed\n");
 		return -EFAULT;
 	}

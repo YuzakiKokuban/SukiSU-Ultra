@@ -42,11 +42,9 @@ bool ksu_module_mounted = false;
 bool ksu_is_compat __read_mostly = false;
 #endif
 
-extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
-
-static bool ksu_su_compat_enabled = true;
-extern void ksu_sucompat_init();
-extern void ksu_sucompat_exit();
+#ifdef CONFIG_KSU_MANUAL_SU
+static void ksu_try_escalate_for_uid(uid_t uid);
+#endif
 
 static inline bool is_allow_su()
 {
@@ -302,7 +300,7 @@ void escape_to_root_for_cmd_su(uid_t target_uid, pid_t target_pid)
 
 
 #ifdef CONFIG_EXT4_FS
-static void nuke_ext4_sysfs(void) 
+void nuke_ext4_sysfs(void) 
 {
 	struct path path;
 	int err = kern_path("/data/adb/modules", 0, &path);
@@ -322,23 +320,13 @@ static void nuke_ext4_sysfs(void)
 	path_put(&path);
 }
 #else
-static inline void nuke_ext4_sysfs(void) 
+inline void nuke_ext4_sysfs(void) 
 {
 
 }
 #endif
 
-static bool is_system_bin_su()
-{
-	if (!current->mm || current->in_execve) {
-		return 0;
-	}
-
-	// quick af check
-	return (current->mm->exe_file && !strcmp(current->mm->exe_file->f_path.dentry->d_name.name, "su"));
-}
-
-static bool is_system_uid(void)
+bool is_system_uid(void)
 {
 	if (!current->mm || current->in_execve) {
 		return 0;
@@ -530,7 +518,6 @@ extern int __ksu_handle_devpts(struct inode *inode); // sucompat.c
 static int ksu_inode_permission_handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
 	struct inode *inode = (struct inode *)PT_REGS_PARM1(regs);
-	int mask = (int)PT_REGS_PARM2(regs);
 
 	if (inode && inode->i_sb && unlikely(inode->i_sb->s_magic == DEVPTS_SUPER_MAGIC)) {
 		// pr_info("%s: handling devpts for: %s \n", __func__, current->comm);
@@ -595,7 +582,6 @@ static void ksu_try_escalate_for_uid(uid_t uid)
 static int ksu_task_alloc_handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
 	struct task_struct *task = (struct task_struct *)PT_REGS_PARM1(regs);
-	unsigned long clone_flags = (unsigned long)PT_REGS_PARM2(regs);
 
 	ksu_try_escalate_for_uid(task_uid(task).val);
 	return 0;
