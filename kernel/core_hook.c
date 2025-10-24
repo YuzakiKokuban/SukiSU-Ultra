@@ -43,10 +43,7 @@
 #include "ksud.h"
 #include "manager.h"
 #include "selinux/selinux.h"
-#include "throne_tracker.h"
-#include "throne_comm.h"
 #include "kernel_compat.h"
-#include "dynamic_manager.h"
 #include "sulog.h"
 
 #ifdef CONFIG_KSU_MANUAL_SU
@@ -318,48 +315,6 @@ void escape_to_root_for_cmd_su(uid_t target_uid, pid_t target_pid)
 }
 #endif
 
-int ksu_handle_rename(struct dentry *old_dentry, struct dentry *new_dentry)
-{
-	if (!current->mm) {
-		// skip kernel threads
-		return 0;
-	}
-
-	if (current_uid().val != 1000) {
-		// skip non system uid
-		return 0;
-	}
-
-	if (!old_dentry || !new_dentry) {
-		return 0;
-	}
-
-	// /data/system/packages.list.tmp -> /data/system/packages.list
-	if (strcmp(new_dentry->d_iname, "packages.list")) {
-		return 0;
-	}
-
-	char path[128];
-	char *buf = dentry_path_raw(new_dentry, path, sizeof(path));
-	if (IS_ERR(buf)) {
-		pr_err("dentry_path_raw failed.\n");
-		return 0;
-	}
-
-	if (!strstr(buf, "/system/packages.list")) {
-		return 0;
-	}
-	pr_info("renameat: %s -> %s, new path: %s\n", old_dentry->d_iname,
-		new_dentry->d_iname, buf);
-
-	if (ksu_uid_scanner_enabled) {
-		ksu_request_userspace_scan();
-	}
-
-	track_throne();
-
-	return 0;
-}
 
 #ifdef CONFIG_EXT4_FS
 static void nuke_ext4_sysfs() {
@@ -459,48 +414,21 @@ static void sulog_prctl_cmd(uid_t uid, unsigned long cmd)
 int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
 		     unsigned long arg4, unsigned long arg5)
 {
-	// if success, we modify the arg5 as result!
-	bool is_manual_su_cmd = false;
 	u32 *result = (u32 *)arg5;
 	u32 reply_ok = KERNEL_SU_OPTION;
-	uid_t current_uid_val = current_uid().val;
 
-#ifdef CONFIG_KSU_MANUAL_SU
-	is_manual_su_cmd = (arg2 == CMD_SU_ESCALATION_REQUEST ||
-	                    arg2 == CMD_ADD_PENDING_ROOT);
-#endif
-
-	// skip this private space support if uid below 100k
-	if (current_uid_val < 100000)
-		goto skip_check;
-
-	uid_t manager_uid = ksu_get_manager_uid();
-	if (current_uid_val != manager_uid &&
-	    current_uid_val % 100000 == manager_uid) {
-		ksu_set_manager_uid(current_uid_val);
-	}
-
-skip_check:
-	// yes this causes delay, but this keeps the delay consistent, which is what we want
-	// with a barrier for safety as the compiler might try to do something smart.
-	DONT_GET_SMART();
-	if (!is_allow_su() && !is_system_uid())
-		return 0;
-
-	// we move it after uid check here so they cannot
-	// compare 0xdeadbeef call to a non-0xdeadbeef call
 	if (KERNEL_SU_OPTION != option)
 		return 0;
 
-	// just continue old logic
 	bool from_root = !current_uid().val;
+	bool from_daemon = is_daemon();
 	bool from_manager = is_manager();
+	bool from_system_uid = is_system_uid();
+	bool from_system_bin_su = is_system_bin_su();
 
 	sulog_prctl_cmd(current_uid().val, arg2);
 
-	if (!from_root && !from_manager 
-		&& !(is_manual_su_cmd ? is_system_uid(): 
-		(is_allow_su() && is_system_bin_su()))) {
+	if (!from_root && !from_daemon && !from_manager && !from_system_uid && !from_system_bin_su) {
 		// only root or manager can access this interface
 		return 0;
 	}
@@ -510,11 +438,38 @@ skip_check:
 #endif
 
 	if (arg2 == CMD_BECOME_MANAGER) {
-		if (from_manager) {
+		// Manager app verifies its identity
+		if (ksu_is_manager_uid_valid() &&
+		    ksu_get_manager_uid() == current_uid().val) {
 			if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
 				pr_err("become_manager: prctl reply error\n");
 			}
+		}
+		return 0;
+	}
+
+	if (arg2 == CMD_BECOME_DAEMON) {
+		// Only root can become daemon (ksud daemon runs as root)
+		if (!from_root) {
+			pr_err("become_daemon: not from root\n");
 			return 0;
+		}
+
+		char token[65];
+		if (copy_from_user(token, (void __user *)arg3, 65)) {
+			pr_err("become_daemon: copy token failed\n");
+			return 0;
+		}
+		token[64] = '\0';
+
+		if (ksu_verify_daemon_token(token)) {
+			ksu_set_daemon_pid(current->pid);
+			pr_info("ksud daemon registered, pid: %d\n", current->pid);
+			if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
+				pr_err("become_daemon: prctl reply error\n");
+			}
+		} else {
+			pr_err("become_daemon: invalid token\n");
 		}
 		return 0;
 	}
@@ -628,10 +583,6 @@ skip_check:
 				pr_info("post-fs-data triggered\n");
 				on_post_fs_data();
 				ksu_sulog_init();
-				// Initialize UID scanner if enabled
-				init_uid_scanner();
-				// Initializing Dynamic Signatures
-        		ksu_dynamic_manager_init();
         		pr_info("Dynamic sign config loaded during post-fs-data\n");
 			}
 			break;
@@ -745,6 +696,28 @@ skip_check:
 		return 0;
 	}
 
+	if (arg2 == CMD_SET_MANAGER_UID) {
+		// Only daemon can set manager uid
+		if (!from_daemon) {
+			pr_err("set_manager_uid: not daemon\n");
+			return 0;
+		}
+
+		uid_t uid;
+		if (copy_from_user(&uid, (void __user *)arg3, sizeof(uid))) {
+			pr_err("set_manager_uid: copy uid failed\n");
+			return 0;
+		}
+
+		ksu_set_manager_uid(uid);
+		pr_info("manager uid set to %d\n", uid);
+
+		if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
+			pr_err("prctl reply error, cmd: %lu\n", arg2);
+		}
+		return 0;
+	}
+
 	#ifdef CONFIG_KPM
 	// ADD: 添加KPM模块控制
 	if(sukisu_is_kpm_control_code(arg2)) {
@@ -827,9 +800,8 @@ skip_check:
 	}
 #endif
 
-
-	// all other cmds are for 'root manager'
-	if (!from_manager) {
+	// all other cmds are for 'daemon or manager'
+	if (!from_daemon && !from_manager) {
 		return 0;
 	}
 
@@ -1087,26 +1059,6 @@ static struct kprobe prctl_kp = {
 	.pre_handler = handler_pre,
 };
 
-static int renameat_handler_pre(struct kprobe *p, struct pt_regs *regs)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
-	// https://elixir.bootlin.com/linux/v5.12-rc1/source/include/linux/fs.h
-	struct renamedata *rd = PT_REGS_PARM1(regs);
-	struct dentry *old_entry = rd->old_dentry;
-	struct dentry *new_entry = rd->new_dentry;
-#else
-	struct dentry *old_entry = (struct dentry *)PT_REGS_PARM2(regs);
-	struct dentry *new_entry = (struct dentry *)PT_REGS_CCALL_PARM4(regs);
-#endif
-
-	return ksu_handle_rename(old_entry, new_entry);
-}
-
-static struct kprobe renameat_kp = {
-	.symbol_name = "vfs_rename",
-	.pre_handler = renameat_handler_pre,
-};
-
 __maybe_unused int ksu_kprobe_init(void)
 {
 	int rc = 0;
@@ -1117,16 +1069,12 @@ __maybe_unused int ksu_kprobe_init(void)
 		return rc;
 	}
 
-	rc = register_kprobe(&renameat_kp);
-	pr_info("renameat kp: %d\n", rc);
-
 	return rc;
 }
 
 __maybe_unused int ksu_kprobe_exit(void)
 {
 	unregister_kprobe(&prctl_kp);
-	unregister_kprobe(&renameat_kp);
 	return 0;
 }
 
@@ -1206,12 +1154,6 @@ static int ksu_task_alloc(struct task_struct *task,
 }
 #endif
 
-static int ksu_inode_rename(struct inode *old_inode, struct dentry *old_dentry,
-			    struct inode *new_inode, struct dentry *new_dentry)
-{
-	return ksu_handle_rename(old_dentry, new_dentry);
-}
-
 static int ksu_task_fix_setuid(struct cred *new, const struct cred *old,
 			       int flags)
 {
@@ -1221,7 +1163,6 @@ static int ksu_task_fix_setuid(struct cred *new, const struct cred *old,
 #ifndef MODULE
 static struct security_hook_list ksu_hooks[] = {
 	LSM_HOOK_INIT(task_prctl, ksu_task_prctl),
-	LSM_HOOK_INIT(inode_rename, ksu_inode_rename),
 	LSM_HOOK_INIT(task_fix_setuid, ksu_task_fix_setuid),
 	LSM_HOOK_INIT(inode_permission, ksu_inode_permission),
 #ifdef CONFIG_KSU_MANUAL_SU
@@ -1386,26 +1327,6 @@ void __init ksu_lsm_hook_init(void)
 	} else {
 		pr_warn("Failed to find task_prctl!\n");
 	}
-
-	int inode_killpriv_index = -1;
-	void *cap_killpriv = GET_SYMBOL_ADDR(cap_inode_killpriv);
-	find_head_addr(cap_killpriv, &inode_killpriv_index);
-	if (inode_killpriv_index < 0) {
-		pr_warn("Failed to find inode_rename, use kprobe instead!\n");
-		register_kprobe(&renameat_kp);
-	} else {
-		int inode_rename_index = inode_killpriv_index +
-					 &security_hook_heads.inode_rename -
-					 &security_hook_heads.inode_killpriv;
-		struct hlist_head *head_start =
-			(struct hlist_head *)&security_hook_heads;
-		void *inode_rename_head = head_start + inode_rename_index;
-		if (inode_rename_head != &security_hook_heads.inode_rename) {
-			pr_warn("inode_rename's address has shifted!\n");
-		}
-		KSU_LSM_HOOK_HACK_INIT(inode_rename_head, inode_rename,
-				       ksu_inode_rename);
-	}
 	void *cap_setuid = GET_SYMBOL_ADDR(cap_task_fix_setuid);
 	void *setuid_head = find_head_addr(cap_setuid, NULL);
 	if (setuid_head) {
@@ -1428,8 +1349,6 @@ void __init ksu_core_init(void)
 
 void ksu_core_exit(void)
 {
-	ksu_uid_exit();
-	ksu_throne_comm_exit();
 	ksu_sulog_exit();
 #ifdef CONFIG_KPROBE
 	pr_info("ksu_core_kprobe_exit\n");

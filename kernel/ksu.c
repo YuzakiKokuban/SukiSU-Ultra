@@ -10,7 +10,7 @@
 #include "core_hook.h"
 #include "klog.h" // IWYU pragma: keep
 #include "ksu.h"
-#include "throne_tracker.h"
+#include "manager.h"
 
 static struct workqueue_struct *ksu_workqueue;
 
@@ -45,11 +45,15 @@ int __init kernelsu_init(void)
 
 	ksu_core_init();
 
-	ksu_workqueue = alloc_ordered_workqueue("kernelsu_work_queue", 0);
+	ksu_generate_daemon_token();
+#ifdef CONFIG_KSU_DEBUG
+	pr_info("Daemon token: %s\n", ksu_get_daemon_token());
+#endif
+
+	ksu_throne_tracker_init = alloc_ordered_workqueue("kernelsu_work_queue", 0);
 
 	ksu_allowlist_init();
 
-	ksu_throne_tracker_init();
 #ifdef CONFIG_KSU_KPROBES_HOOK
 	ksu_sucompat_init();
 	ksu_ksud_init();
@@ -72,8 +76,6 @@ int __init kernelsu_init(void)
 void kernelsu_exit(void)
 {
 	ksu_allowlist_exit();
-
-	ksu_throne_tracker_exit();
 
 	destroy_workqueue(ksu_workqueue);
 
