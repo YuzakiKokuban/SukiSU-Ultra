@@ -26,9 +26,7 @@
 #define SYS_EXECVE_SYMBOL "__arm64_sys_execve"
 /*LSM HOOK*/
 #define SECURITY_TASK_FIX_SETUID_SYMBOL "security_task_fix_setuid"
-#define INODE_PERMISSION_SYMBOL "inode_permission"
-#define BPRM_CHECK_SECURITY_SYMBOL "bprm_check_security"
-#define TASK_ALLOC_SYMBOL "task_alloc"
+#define PRCTL_SYMBOL "__arm64_sys_prctl"
 
 #elif defined(__x86_64__)
 
@@ -53,9 +51,7 @@
 #define SYS_EXECVE_SYMBOL "__x64_sys_execve"
 /*LSM HOOK*/
 #define SECURITY_TASK_FIX_SETUID_SYMBOL "security_task_fix_setuid"
-#define INODE_PERMISSION_SYMBOL "inode_permission"
-#define BPRM_CHECK_SECURITY_SYMBOL "bprm_check_security"
-#define TASK_ALLOC_SYMBOL "task_alloc"
+#define PRCTL_SYMBOL "__x64_sys_prctl"
 
 #else
 #error "Unsupported arch"
