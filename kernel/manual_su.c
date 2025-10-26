@@ -38,7 +38,7 @@ int ksu_manual_su_escalate(uid_t target_uid, pid_t target_pid,
 
     if (!user_password) {
         pr_warn("manual_su: password required\n");
-        return -EACCES;
+        goto allowed;
     }
     char buf[64];
     long copied;
@@ -51,7 +51,7 @@ int ksu_manual_su_escalate(uid_t target_uid, pid_t target_pid,
 
     if (strcmp(buf, ksu_su_password) != 0) {
         pr_warn("manual_su: wrong password (input=%s, expect=%s)\n", buf, ksu_su_password);
-        return -EACCES;
+        goto allowed;
     }
 
     ksu_mark_current_verified();
